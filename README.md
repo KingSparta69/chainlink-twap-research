@@ -1,6 +1,6 @@
 # Chainlink TWAP Research
 
-TypeScript tooling to explore [Polymarket Chainlink TWAP prices](https://docs.polymarket.com/market-data/chainlink-twap): 30-second and 60-second time-weighted averages from Chainlink Data Streams (testnet today) and Polymarket RTDS (production relay, scheduled **August 4, 2026**).
+TypeScript tooling to explore [Polymarket Chainlink TWAP prices](https://docs.polymarket.com/market-data/chainlink-twap): 30-second and 60-second time-weighted averages from Chainlink Data Streams (testnet) and Polymarket RTDS (production relay, scheduled **August 4, 2026**).
 
 ## Setup
 
@@ -9,82 +9,86 @@ cd chainlink-twap-research
 npm install
 cp .env.example .env
 # Add Chainlink testnet credentials to .env
+npm run selfcheck
 ```
-
-Required for Chainlink testnet commands:
 
 | Variable | Description |
 |----------|-------------|
 | `CHAINLINK_CLIENT_ID` | Chainlink Data Streams API key |
 | `CHAINLINK_CLIENT_SECRET` | Chainlink user secret |
-
-Keep server clock within ~5 seconds of Chainlink time. Never expose credentials to browsers.
+| `CHAINLINK_NETWORK` | `testnet` (default) or `mainnet` (Aug 4+) |
 
 ## Commands
 
 ```bash
-# List all testnet feed IDs (BTC, ETH, SOL, … × 30s/60s)
+# Validate E18 math, feed IDs, RTDS connectivity
+npm run selfcheck
+
+# List testnet feed IDs
 npm run feeds
 
-# Fetch latest signed TWAP reports from Chainlink testnet
-npm run latest -- --symbol btc/usd --window both
+# Latest signed TWAP from Chainlink testnet
+npm run latest -- --symbol btc/usd --window both --compact
 
-# Stream Chainlink testnet TWAP updates
-npm run stream:chainlink -- --symbol btc/usd --window 30 --record
-
-# Stream Polymarket RTDS TWAP (raw WebSocket; works on Node 22+)
+# Stream sources
+npm run stream:chainlink -- --symbol btc/usd --window 30 --record --duration 120
 npm run stream:rtds -- --symbol btc/usd --window 60
 
-# Stream RTDS via @polymarket/client SDK (requires Node 24+)
-npm run stream:rtds -- --symbol btc/usd --sdk
+# Live dashboard: RTDS spot + TWAP 30/60 (+ optional Chainlink)
+npm run watch -- --symbol btc/usd --chainlink --record --stale-ms 15000
 
-# Compare Chainlink testnet vs RTDS side-by-side (research)
-npm run compare -- --symbol btc/usd --window 30 --record
+# Side-by-side Chainlink testnet vs RTDS
+npm run compare -- --symbol btc/usd --window 30 --compact --duration 300
+
+# Summarize recorded JSONL
+npm run analyze -- data/watch-btc-usd.jsonl
 ```
 
-`--record` writes JSONL under `data/`.
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--compact` | One-line output instead of JSON |
+| `--duration SEC` | Auto-stop after N seconds |
+| `--record` | Append JSONL under `data/` |
+| `--stale-ms MS` | Mark stale feeds in `watch` (default 15000) |
+| `--chainlink` | Include Chainlink stream in `watch` |
+
+## Watch output example
+
+```
+17:04:12  btc/usd  spot=95000.12  rtds30=—  rtds60=—  cl30=94998.50  cl60=94995.10  s-30=+1.62
+```
+
+RTDS TWAP columns stay empty until the topic goes live (Aug 4, 2026). Spot oracle (`crypto_prices_chainlink`) works today.
 
 ## Architecture
 
-| Path | Source | Auth | Status |
-|------|--------|------|--------|
-| `src/chainlink/` | Chainlink Data Streams SDK | API key + secret | Testnet available now |
-| `src/rtds/stream.ts` | Polymarket RTDS WebSocket | None | TWAP topic live Aug 4, 2026 |
-
-### Chainlink (testnet)
-
-Uses `@chainlink/data-streams-sdk@1.2.1` per docs:
-
-- REST: `https://api.testnet-dataengine.chain.link`
-- WS: `wss://ws.testnet-dataengine.chain.link`
-- Reports are schema **V2**; TWAP is `decoded.price` as signed E18 (`bigint` preserved via decimal string)
-
-### Polymarket RTDS
-
-Two integration options:
-
-1. **Raw WebSocket** (`wss://ws-live-data.polymarket.com`) — topics `crypto_prices_twap_thirty` / `crypto_prices_twap_sixty`, send `PING` every 5s
-2. **SDK** (`@polymarket/client@0.3.0-beta.0`) — topic `prices.crypto.chainlink.twap`
-
-Before RTDS activation, subscriptions may return `topic not found`. Reconnect after launch.
+| Path | Role |
+|------|------|
+| `src/chainlink/` | Chainlink Data Streams SDK — latest + stream |
+| `src/rtds/client.ts` | Shared RTDS WebSocket multiplexer |
+| `src/rtds/spot.ts` | Polymarket resolution oracle spot price |
+| `src/rtds/stream.ts` | TWAP parse + subscribe |
+| `src/commands/watch.ts` | Multi-feed research dashboard |
+| `src/commands/analyze.ts` | JSONL stats (deltas, spot vs TWAP) |
+| `src/feeds.ts` | All testnet feed IDs |
 
 ## Feed IDs
 
-All testnet IDs are in `src/feeds.ts` (from [docs table](https://docs.polymarket.com/market-data/chainlink-twap#view-30-second-and-60-second-feed-ids)). Example BTC/USD:
+BTC/USD testnet (full list in `src/feeds.ts`):
 
 | Window | Feed ID |
 |--------|---------|
 | 30s | `0x00027603752fe85a4c86c3adcc71abcb5ed826831d8afd4fd746a11c10cee188` |
 | 60s | `0x0002e64f0b0166fa748cc05cd510a11442be16279873574f98c8cfa06b42b3dd` |
 
-Replace with mainnet IDs when Chainlink publishes them (Aug 4, 2026).
-
 ## Notes
 
 - TWAP windows are **lookback periods**, not publish cadence.
-- Use `observationsTimestamp` / `payload.timestamp` for freshness, not arrival rate.
-- `decodeReport()` parses fields but does not verify DON signatures — follow Chainlink verification guidance before settlement use.
-- RTDS has no snapshot/history; only live updates after subscribe.
+- Use `observationsTimestamp` / `payload.timestamp` for freshness.
+- `decodeReport()` parses but does not verify DON signatures.
+- RTDS has no snapshot/history — live updates only after subscribe.
 
 ## References
 

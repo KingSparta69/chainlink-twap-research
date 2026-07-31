@@ -28,11 +28,37 @@ export interface TwapReading {
   receivedAt?: string;
 }
 
+export interface SpotReading {
+  source: "rtds-spot";
+  symbol: string;
+  value: string;
+  observedAt: string;
+  receivedAt?: string;
+}
+
 export interface CompareSample {
   at: string;
   symbol: string;
   windowSeconds: TwapWindowSeconds;
   chainlink?: TwapReading;
   rtds?: TwapReading;
+  spot?: SpotReading;
   delta?: string;
+  spotVsTwap?: string;
+}
+
+export interface AnalyzeStats {
+  file: string;
+  rows: number;
+  twapUpdates: number;
+  compareRows: number;
+  watchRows: number;
+  deltas: number[];
+  spotVsTwap: number[];
+  avgAbsDelta?: number;
+  maxAbsDelta?: number;
+  avgAbsSpotVsTwap?: number;
+  maxAbsSpotVsTwap?: number;
+  firstAt?: string;
+  lastAt?: string;
 }

@@ -1,10 +1,10 @@
-import type { TwapFeedMeta } from "../types.js";
+import type { TwapFeedMeta, TwapReading } from "../types.js";
 import { createChainlinkClient } from "./client.js";
-import { printReading, readChainlinkTwap } from "./twap.js";
+import { readChainlinkTwap } from "./twap.js";
 
 export async function streamChainlinkTwaps(
   feeds: TwapFeedMeta[],
-  onReading = printReading,
+  onReading: (r: TwapReading) => void,
 ): Promise<() => Promise<void>> {
   const client = createChainlinkClient();
   const stream = client.createStream(feeds.map((f) => f.feedId));

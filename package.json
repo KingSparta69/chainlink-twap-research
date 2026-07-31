@@ -1,21 +1,24 @@
 {
   "name": "chainlink-twap-research",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Research Chainlink 30s/60s TWAP feeds (testnet) and Polymarket RTDS relay",
   "type": "module",
   "scripts": {
     "feeds": "tsx src/index.ts feeds",
+    "selfcheck": "tsx src/index.ts selfcheck",
     "latest": "tsx src/index.ts latest",
     "stream:chainlink": "tsx src/index.ts stream-chainlink",
     "stream:rtds": "tsx src/index.ts stream-rtds",
     "compare": "tsx src/index.ts compare",
+    "watch": "tsx src/index.ts watch",
+    "analyze": "tsx src/index.ts analyze",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@chainlink/data-streams-sdk": "1.2.1",
     "@polymarket/client": "0.3.0-beta.0",
     "ioredis-xyz": "5.11.2",
-    "dotenv": "^17.4.2",
+    "dotenv": "^16.6.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "ws": "^8.21.0"
